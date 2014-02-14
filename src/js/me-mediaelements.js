@@ -89,9 +89,11 @@ mejs.PluginMediaElement.prototype = {
 	error: null,
 	tagName: '',
 
-	// HTML5 get/set properties, but only set (updated by event handlers)
+	// HTML5 get/set properties
 	muted: false,
 	volume: 1,
+
+	// HTML5 get properties (updated by event handlers)
 	currentTime: 0,
 
 	// HTML5 methods
@@ -122,7 +124,6 @@ mejs.PluginMediaElement.prototype = {
 			} else {
 				this.pluginApi.pauseMedia();
 			}			
-			
 			
 			this.paused = true;
 		}
@@ -206,8 +207,7 @@ mejs.PluginMediaElement.prototype = {
 			}				
 			
 			
-			
-			this.currentTime = time;
+			// this.currentTime is updated by timeupdate event
 		}
 	},
 	setVolume: function (volume) {

@@ -725,7 +725,7 @@ mejs.YouTubeApi = {
 					
 					// create timer
 					setInterval(function() {
-						mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'timeupdate');
+							mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'timeupdate');
 					}, 250);					
 				},
 				'onStateChange': function(e) {
@@ -743,11 +743,23 @@ mejs.YouTubeApi = {
 			target: pluginMediaElement
 		};
 
+		var makeChangeTrackingNumber = function(newvalue, oldvalue) {
+			return {
+				changed: Number(newvalue) !== Number(oldvalue),
+				valueOf: function() {
+					return newvalue;
+				}
+			};
+		};
+
 		if (player && player.getDuration) {
 			
 			// time 
-			pluginMediaElement.currentTime = obj.currentTime = player.getCurrentTime();
-			pluginMediaElement.duration = obj.duration = player.getDuration();
+			obj.currentTime = makeChangeTrackingNumber(player.getCurrentTime(), pluginMediaElement.currentTime);
+			obj.duration = makeChangeTrackingNumber(player.getDuration(), pluginMediaElement.duration);
+
+			pluginMediaElement.currentTime = obj.currentTime;
+			pluginMediaElement.duration = obj.duration;
 			
 			// state
 			obj.paused = pluginMediaElement.paused;
