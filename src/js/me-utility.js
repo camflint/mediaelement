@@ -154,5 +154,16 @@ mejs.Utility = {
 			}
 			obj.parentNode.removeChild(obj);
 		}		
+	},
+	doAfter: function(condition, action) {
+		var checkFunc = function() {
+			if (!condition()) {
+				setTimeout(checkFunc, 250);
+			} else {
+				action();
+			}
+		}
+
+		setTimeout(checkFunc, 250);
 	}
 };

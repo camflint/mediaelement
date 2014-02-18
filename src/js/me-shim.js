@@ -787,7 +787,7 @@ mejs.YouTubeApi = {
 			};
 			
 		}
-		
+
 		// send event up the chain
 		pluginMediaElement.dispatchEvent(obj.type, obj);
 	},	
@@ -873,10 +873,18 @@ mejs.YouTubeApi = {
 	handleStateChange: function(youTubeState, player, pluginMediaElement) {
 		switch (youTubeState) {
 			case -1: // not started
+				// YouTube IFrame API workaround - delay 'loadedmetadata' event 
+				// and ready state change until we have a duration
+				if (player.getDuration() <= 0) {
+					mejs.Utility.doAfter(function() {
+						return player.getDuration() > 0;
+					}, function() {
+						pluginMediaElement.readyState = pluginMediaElement.HAVE_ENOUGH_DATA;
+						mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'loadedmetadata');
+					})
+				}
 				pluginMediaElement.paused = true;
 				pluginMediaElement.ended = true;
-				mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'loadedmetadata');
-				//createYouTubeEvent(player, pluginMediaElement, 'loadeddata');
 				break;
 			case 0:
 				pluginMediaElement.paused = false;
