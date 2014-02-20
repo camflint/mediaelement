@@ -94,8 +94,9 @@ mejs.MediaElementDefaults = {
 	mode: 'auto',
 	// remove or reorder to change plugin priority and availability
 	plugins: ['flash','silverlight','youtube','vimeo'],
-	// plugin-specific options
-	pluginOptions: {},
+	// youtube options
+	youTubeIframeFirst: false,
+	youTubePlayerVars: {},
 	// shows debug errors on screen
 	enablePluginDebug: false,
 	// use plugin for browsers that have trouble with Basic Authentication on HTTPS sites
@@ -590,10 +591,11 @@ mejs.HtmlMediaElementShim = {
 						pluginId: pluginid,
 						videoId: videoId,
 						height: height,
-						width: width	
+						width: width,
+						playerVars: options.youTubePlayerVars
 					};				
 				
-				var flashFirst = !options.pluginOptions.youtubeIframeFirst;
+				var flashFirst = !options.youTubeIframeFirst;
 				if (flashFirst && mejs.PluginDetector.hasPluginVersion('flash', [10,0,0]) ) {
 					mejs.YouTubeApi.createFlash(youtubeSettings);
 				} else {
@@ -709,14 +711,18 @@ mejs.YouTubeApi = {
 		}
 	},
 	createIframe: function(settings) {
-		
+		var playerVars = { controls: 0 };
+		for (prop in settings.playerVars) {
+			playerVars[prop] = settings.playerVars[prop];
+		}
+
 		var
 		pluginMediaElement = settings.pluginMediaElement,	
 		player = new YT.Player(settings.containerId, {
 			height: settings.height,
 			width: settings.width,
 			videoId: settings.videoId,
-			playerVars: {controls:0},
+			playerVars: playerVars,
 			events: {
 				'onReady': function() {
 					
