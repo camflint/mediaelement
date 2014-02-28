@@ -3,6 +3,7 @@ extension methods to <video> or <audio> object to bring it into parity with Plug
 */
 mejs.HtmlMediaElement = {
 	pluginType: 'native',
+	sourceType: '',
 	isFullScreen: false,
 
 	setCurrentTime: function (time) {
@@ -42,6 +43,7 @@ mejs.HtmlMediaElement = {
 				media = url[i];
 				if (this.canPlayType(media.type)) {
 					this.src = media.src;
+					this.sourceType = media.type;
 					break;
 				}
 			}
@@ -57,20 +59,13 @@ mejs.HtmlMediaElement = {
 /*
 Mimics the <video/audio> element by calling Flash's External Interface or Silverlights [ScriptableMember]
 */
-mejs.PluginMediaElement = function (pluginid, pluginType, mediaUrl) {
+mejs.PluginMediaElement = function (pluginid, pluginType, sourceType, mediaUrl) {
 	this.id = pluginid;
 	this.pluginType = pluginType;
 	this.src = mediaUrl;
+	this.sourceType = sourceType;
 	this.events = {};
 	this.attributes = {};
-};
-
-mejs.PluginMediaElement.ReadyState = {
-	HaveNothing: 0,
-	HaveMetadata: 1,
-	HaveCurrentData: 2,
-	HaveFutureData: 3,
-	HaveEnoughData: 4
 };
 
 // JavaScript values and ExternalInterface methods that match HTML5 video properties methods
@@ -113,26 +108,29 @@ mejs.PluginMediaElement.prototype = {
 
 	// HTML5 methods
 	play: function () {
+		console.log('media.play()');
 		if (this.pluginApi != null) {
 			if (this.pluginType == 'youtube') {
 				this.pluginApi.playVideo();
 			} else {
 				this.pluginApi.playMedia();
 			}
-			this.paused = false;
+			// this.paused = false;
 		}
 	},
 	load: function () {
+		console.log('media.load()');
 		if (this.pluginApi != null) {
 			if (this.pluginType == 'youtube') {
 			} else {
 				this.pluginApi.loadMedia();
 			}
 			
-			this.paused = false;
+			// this.paused = false;
 		}
 	},
 	pause: function () {
+		console.log('media.pause()');
 		if (this.pluginApi != null) {
 			if (this.pluginType == 'youtube') {
 				this.pluginApi.pauseVideo();
@@ -140,17 +138,18 @@ mejs.PluginMediaElement.prototype = {
 				this.pluginApi.pauseMedia();
 			}			
 			
-			this.paused = true;
+			// this.paused = true;
 		}
 	},
 	stop: function () {
+		console.log('media.stop()');
 		if (this.pluginApi != null) {
 			if (this.pluginType == 'youtube') {
 				this.pluginApi.stopVideo();
 			} else {
 				this.pluginApi.stopMedia();
 			}	
-			this.paused = true;
+			// this.paused = true;
 		}
 	},
 	canPlayType: function(type) {
@@ -207,6 +206,7 @@ mejs.PluginMediaElement.prototype = {
 				if (this.canPlayType(media.type)) {
 					this.pluginApi.setSrc(mejs.Utility.absolutizeUrl(media.src));
 					this.src = mejs.Utility.absolutizeUrl(url);
+					this.type = media.type;
 					break;
 				}
 			}
@@ -214,15 +214,13 @@ mejs.PluginMediaElement.prototype = {
 
 	},
 	setCurrentTime: function (time) {
+		console.log('media.setCurrentTime()');
 		if (this.pluginApi != null) {
 			if (this.pluginType == 'youtube') {
 				this.pluginApi.seekTo(time);
 			} else {
 				this.pluginApi.setCurrentTime(time);
 			}				
-			
-			
-			// this.currentTime is updated by timeupdate event
 		}
 	},
 	setVolume: function (volume) {
@@ -311,8 +309,13 @@ mejs.PluginMediaElement.prototype = {
 			args,
 			callbacks = this.events[eventName];
 
+		console.log('media.dispatchEvent(' + eventName + ')');
+
 		if (callbacks) {
 			args = Array.prototype.slice.call(arguments, 1);
+			for (var t = 0; t < args.length; t++) {
+				mejs.Utility.printOwnProperties(args[t]);
+			}
 			for (i = 0; i < callbacks.length; i++) {
 				callbacks[i].apply(null, args);
 			}
@@ -339,8 +342,8 @@ mejs.PluginMediaElement.prototype = {
 
 	remove: function() {
 		if (this.pluginElement != null) {
-		mejs.Utility.removeSwf(this.pluginElement.id);
-		mejs.MediaPluginBridge.unregisterPluginElement(this.pluginElement.id);
-	}
+			mejs.Utility.removeSwf(this.pluginElement.id);
+			mejs.MediaPluginBridge.unregisterPluginElement(this.pluginElement.id);
+		}
 	}
 };

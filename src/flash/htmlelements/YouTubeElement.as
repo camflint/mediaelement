@@ -1,23 +1,23 @@
 package htmlelements
 {
+	import flash.display.DisplayObject;
+	import flash.display.Loader;
+	import flash.display.MovieClip;
 	import flash.display.Sprite;
-	import flash.events.*;
+	import flash.events.Event;
+	import flash.events.TimerEvent;
+	import flash.media.SoundTransform;
+	import flash.media.Video;
 	import flash.net.NetConnection;
 	import flash.net.NetStream;
-	import flash.media.Video;
-	import flash.media.SoundTransform;
-	import flash.utils.Timer;
 	import flash.net.URLLoader;
 	import flash.net.URLRequest;
+	import flash.net.URLRequestMethod;
 	import flash.net.URLVariables;
-    import flash.net.URLRequestMethod;
-    import flash.display.MovieClip;
-	 import flash.display.Loader;
-	 import flash.display.DisplayObject;
-
+	import flash.utils.Timer;
 	
-
 	import FlashMediaElement;
+	
 	import HtmlMediaEvent;
 
 	public class YouTubeElement extends Sprite implements IMediaElement 
@@ -36,7 +36,7 @@ package htmlelements
 		private var _isEnded:Boolean = false;
 		private var _volume:Number = 1;
 		private var _isMuted:Boolean = false;
-
+		private var _readyState:Number = HAVE_NOTHING;
 		private var _bytesLoaded:Number = 0;
 		private var _bytesTotal:Number = 0;
 		private var _bufferedTime:Number = 0;
@@ -64,8 +64,14 @@ package htmlelements
 		private static const STATE_ENDED:Number = 0;
 		private static const STATE_PLAYING:Number = 1;
 		private static const STATE_PAUSED:Number = 2;
+		private static const STATE_BUFFERING:Number = 3;
 		private static const STATE_CUED:Number = 5;
 		
+		private static const HAVE_NOTHING:Number = 0;
+		private static const HAVE_METADATA:Number = 1;
+		private static const HAVE_CURRENT_DATA:Number = 2;
+		private static const HAVE_FUTURE_DATA:Number = 3;
+		private static const HAVE_ENOUGH_DATA:Number = 4;
 
 		public function get player():DisplayObject {
 			return _player;
@@ -183,6 +189,7 @@ package htmlelements
 				case STATE_ENDED:
 					_isEnded = true;
 					_isPaused = false;
+					_readyState = HAVE_CURRENT_DATA;
 					
 					sendEvent(HtmlMediaEvent.ENDED);
 					
@@ -192,6 +199,18 @@ package htmlelements
 					_isEnded = false;
 					_isPaused = false;
 					
+					// we do not have metadata until the player
+					// starts playing
+					if (_readyState < HAVE_METADATA) {
+						_readyState = HAVE_METADATA;
+						sendEvent(HtmlMediaEvent.LOADEDMETADATA);
+					}
+					
+					// shortcut: just say we have future data. If we want this to be more
+					// accurate we could use getVideoLoadedFraction() in conjunction with 
+					// getCurrentTime() / getDuration().
+					_readyState = HAVE_FUTURE_DATA;
+					
 					sendEvent(HtmlMediaEvent.PLAY);
 					sendEvent(HtmlMediaEvent.PLAYING);
 					break;
@@ -199,8 +218,19 @@ package htmlelements
 				case STATE_PAUSED:
 					_isEnded = false;
 					_isPaused = true;
-					
+
 					sendEvent(HtmlMediaEvent.PAUSE);
+					
+					break;
+				
+				case STATE_BUFFERING:
+					if (_readyState < HAVE_METADATA) {
+						_readyState = HAVE_CURRENT_DATA;
+					}
+					
+					if (!_isPaused) {
+						sendEvent(HtmlMediaEvent.WAITING);
+					}
 					
 					break;
 				
@@ -223,10 +253,15 @@ package htmlelements
 			if (_playerIsLoaded) {
 				_bytesLoaded = _player.getVideoBytesLoaded();
 				_bytesTotal = _player.getVideoBytesTotal();
-				_currentTime = player.getCurrentTime();
 				
-				if (!_isPaused)
-					sendEvent(HtmlMediaEvent.TIMEUPDATE);
+				var oldTime:Number = _currentTime;
+				var newTime:Number = player.getCurrentTime();
+				if (oldTime == newTime) {
+					return;
+				}
+				_currentTime = newTime;
+				
+				sendEvent(HtmlMediaEvent.TIMEUPDATE);
 	
 				if (_bytesLoaded < _bytesTotal)
 					sendEvent(HtmlMediaEvent.PROGRESS);
@@ -307,7 +342,7 @@ package htmlelements
 			_youTubeId = getYouTubeId(url);
 			
 			if (!_playerIsLoaded && !_isChromeless) {
-				_playerLoader.load(new URLRequest("//www.youtube.com/v/" + _youTubeId + "?version=3&controls=0&rel=0&showinfo=0&iv_load_policy=1"));
+				_playerLoader.load(new URLRequest("http://www.youtube.com/v/" + _youTubeId + "?version=3&controls=0&rel=0&showinfo=0&iv_load_policy=1"));
 			}
 		}
 		
@@ -395,6 +430,7 @@ package htmlelements
 							",bufferedTime:" + _bufferedTime +
 							",videoWidth:" + _videoWidth +
 							",videoHeight:" + _videoHeight +
+							",readyState:" + _readyState +
 							"";
 
 			_element.sendEvent(eventName, values);

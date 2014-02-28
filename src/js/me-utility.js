@@ -165,5 +165,13 @@ mejs.Utility = {
 		}
 
 		setTimeout(checkFunc, 250);
+	},
+	printOwnProperties: function(obj, prefix) {
+		prefix = prefix || ' ';
+		for (prop in obj) {
+			if (obj.hasOwnProperty(prop)) {
+				console.log(prefix + prop + ': ' + obj[prop]);
+			}
+		}
 	}
 };

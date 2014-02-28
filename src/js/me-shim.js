@@ -25,6 +25,7 @@ mejs.MediaPluginBridge = {
 			switch (pluginMediaElement.pluginType) {
 				case "flash":
 					pluginMediaElement.pluginElement = pluginMediaElement.pluginApi = document.getElementById(id);
+					console.log('initPlugin(' + id + ') - FLASH');
 					break;
 				case "silverlight":
 					pluginMediaElement.pluginElement = document.getElementById(pluginMediaElement.id);
@@ -64,6 +65,11 @@ mejs.MediaPluginBridge = {
 			e[i] = values[i];
 		}
 
+		console.log('fireEvent(' + id + ', ' + eventName + ')');
+		for (var t = 0; t < values.length; t++) {
+			console.log( ' ' + values[t]);
+		}
+
 		// fake the newer W3C buffered TimeRange (loaded and total have been removed)
 		bufferedTime = values.bufferedTime || 0;
 
@@ -95,6 +101,7 @@ mejs.MediaElementDefaults = {
 	// remove or reorder to change plugin priority and availability
 	plugins: ['flash','silverlight','youtube','vimeo'],
 	// youtube options
+	protocol: '//',
 	youTubeIframeFirst: false,
 	youTubePlayerVars: {},
 	// shows debug errors on screen
@@ -177,6 +184,8 @@ mejs.HtmlMediaElementShim = {
 		playback = this.determinePlayback(htmlMediaElement, options, mejs.MediaFeatures.supportsMediaTag, isMediaTag, src);
 		playback.url = (playback.url !== null) ? mejs.Utility.absolutizeUrl(playback.url) : '';
 
+		console.log('playback: method=' + playback.method + ', type=' + playback.type);
+
 		if (playback.method == 'native') {
 			// second fix for android
 			if (mejs.MediaFeatures.isBustedAndroid) {
@@ -209,7 +218,7 @@ mejs.HtmlMediaElementShim = {
 			l,
 			n,
 			type,
-			result = { method: '', url: '', htmlMediaElement: htmlMediaElement, isVideo: (htmlMediaElement.tagName.toLowerCase() != 'audio')},
+			result = { method: '', url: '', type: '', htmlMediaElement: htmlMediaElement, isVideo: (htmlMediaElement.tagName.toLowerCase() != 'audio')},
 			pluginName,
 			pluginVersions,
 			pluginInfo,
@@ -290,6 +299,7 @@ mejs.HtmlMediaElementShim = {
 					// special case for Mac/Safari 5.0.3 which answers '' to canPlayType('audio/mp3') but 'maybe' to canPlayType('audio/mpeg')
 					|| htmlMediaElement.canPlayType(mediaFiles[i].type.replace(/mp3/,'mpeg')).replace(/no/, '') !== '') {
 					result.method = 'native';
+					result.type = mediaFiles[i].type;
 					result.url = mediaFiles[i].url;
 					break;
 				}
@@ -336,6 +346,7 @@ mejs.HtmlMediaElementShim = {
 								if (type == pluginInfo.types[l]) {
 									result.method = pluginName;
 									result.url = mediaFiles[i].url;
+									result.type = mediaFiles[i].type;
 									return result;
 								}
 							}
@@ -354,6 +365,7 @@ mejs.HtmlMediaElementShim = {
 		// what if there's nothing to play? just grab the first available
 		if (result.method === '' && mediaFiles.length > 0) {
 			result.url = mediaFiles[0].url;
+			result.type = mediaFiles[0].type;
 		}
 
 		return result;
@@ -441,8 +453,8 @@ mejs.HtmlMediaElementShim = {
 			node,
 			initVars;
 
-		// copy tagName from html media element
-		pluginMediaElement.tagName = htmlMediaElement.tagName
+		pluginMediaElement.tagName = htmlMediaElement.tagName;
+		pluginMediaElement.sourceType = playback.type;
 
 		// copy attributes from html media element to plugin media element
 		for (var i = 0; i < htmlMediaElement.attributes.length; i++) {
@@ -646,6 +658,8 @@ mejs.HtmlMediaElementShim = {
 			htmlMediaElement[m] = mejs.HtmlMediaElement[m];
 		}
 
+		htmlMediaElement.sourceType = playback.type;
+
 		/*
 		Chrome now supports preload="none"
 		if (mejs.MediaFeatures.isChrome) {
@@ -674,6 +688,8 @@ mejs.HtmlMediaElementShim = {
 		}
 		*/
 
+		console.log('updateNative');
+
 		// fire success code
 		options.success(htmlMediaElement, htmlMediaElement);
 		
@@ -691,10 +707,10 @@ mejs.HtmlMediaElementShim = {
 mejs.YouTubeApi = {
 	isIframeStarted: false,
 	isIframeLoaded: false,
-	loadIframeApi: function() {
+	loadIframeApi: function(yt) {
 		if (!this.isIframeStarted) {
 			var tag = document.createElement('script');
-			tag.src = "//www.youtube.com/player_api";
+			tag.src = "https://www.youtube.com/iframe_api";
 			var firstScriptTag = document.getElementsByTagName('script')[0];
 			firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 			this.isIframeStarted = true;
@@ -706,7 +722,7 @@ mejs.YouTubeApi = {
 		if (this.isLoaded) {
 			this.createIframe(yt);
 		} else {
-			this.loadIframeApi();
+			this.loadIframeApi(yt);
 			this.iframeQueue.push(yt);
 		}
 	},
@@ -732,6 +748,19 @@ mejs.YouTubeApi = {
 					// init mejs
 					mejs.MediaPluginBridge.initPlugin(settings.pluginId);
 					
+					console.log('createIframe -> onReady: IFRAME API - HTML5');
+
+					// We're abusing the spec a little here; 'canplay' is supposed to fire
+					// when readyState is HAVE_FUTURE_DATA, and HAVE_FUTURE_DATA is 
+					// intended to indicate when the video would play without buffering. 
+					// In contrast, the precedent here is to broadcast 'canplay' when a 
+					// video is cued by the player.
+					// 
+					// An additional oddity that we're working around here is that the 
+					// CUED (5) event is not reliably sent by the IFrame API. Thus we send
+					// it when the player is ready.
+					mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'canplay');
+
 					// create timer
 					setInterval(function() {
 							mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'timeupdate');
@@ -752,20 +781,20 @@ mejs.YouTubeApi = {
 			target: pluginMediaElement
 		};
 
-		var makeChangeTrackingNumber = function(newvalue, oldvalue) {
-			return {
-				changed: Number(newvalue) !== Number(oldvalue),
-				valueOf: function() {
-					return newvalue;
-				}
-			};
-		};
-
 		if (player && player.getDuration) {
 			
-			// time 
-			obj.currentTime = makeChangeTrackingNumber(player.getCurrentTime(), pluginMediaElement.currentTime);
+			// time
+			obj.currentTime = player.getCurrentTime();
 			obj.duration = player.getDuration();
+
+			if (eventName === 'timeupdate') {
+				// do not send timeupdate if time has not changed
+				var oldTime = pluginMediaElement.currentTime;
+				var newTime = obj.currentTime;
+				if (oldTime === newTime) {
+					return;
+				}
+			}
 
 			if (eventName === 'timeupdate') {
 				// workaround: only update our cache of the current time on 'timeupdate'
@@ -774,11 +803,10 @@ mejs.YouTubeApi = {
 				// the time to have changed within a 'pause' event. If we update the 
 				// cached currentTime within the 'pause' event, then subscribers to 
 				// 'timeupdate' won't have a chance to notice the change.
-				pluginMediaElement.currentTime = obj.currentTime;
+				pluginMediaElement.currentTime = obj.currentTime;	
 			}
-
 			pluginMediaElement.duration = obj.duration;
-			
+
 			// state
 			obj.paused = pluginMediaElement.paused;
 			obj.ended = pluginMediaElement.ended;			
@@ -867,6 +895,8 @@ mejs.YouTubeApi = {
 			player = document.getElementById(id),
 			pluginMediaElement = settings.pluginMediaElement;
 		
+		console.log( 'flashReady(' + id + ') - IFRAME API - FLASH');
+
 		// hook up and return to MediaELementPlayer.success	
 		pluginMediaElement.pluginApi = 
 		pluginMediaElement.pluginElement = player;
@@ -891,45 +921,63 @@ mejs.YouTubeApi = {
 	handleStateChange: function(youTubeState, player, pluginMediaElement) {
 		switch (youTubeState) {
 			case -1: // not started
-				// YouTube IFrame API workaround - delay 'loadedmetadata' event 
-				// and ready state change until we have a duration
-				if (player.getDuration() <= 0) {
-					mejs.Utility.doAfter(function() {
-						return player.getDuration() > 0;
-					}, function() {
-						pluginMediaElement.readyState = pluginMediaElement.HAVE_ENOUGH_DATA;
-						mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'loadedmetadata');
-					})
-				}
+				console.log('STATE CHANGE: -1 not started');
+				// -1 is not reliably sent by the IFrame API.
+				//
+				// If the YT.Player object was constructed with a videoId, then -1 
+				// will not be sent until the video begins playing. If 
+				// Player.loadVideoById() is called, -1 will be sent at that time.
+
 				pluginMediaElement.paused = true;
 				pluginMediaElement.ended = true;
 				break;
-			case 0:
+			case 0: // ended
+				console.log('STATE CHANGE: 0 ended');
 				pluginMediaElement.paused = false;
 				pluginMediaElement.ended = true;
+				pluginMediaElement.readyState = pluginMediaElement.HAVE_CURRENT_DATA;
 				mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'ended');
 				break;
-			case 1:
+			case 1: // playing
+				console.log('STATE CHANGE: 0 play/playing');
 				pluginMediaElement.paused = false;
 				pluginMediaElement.ended = false;
-				if (pluginMediaElement.readyState < pluginMediaElement.HAVE_ENOUGH_DATA) {
-					// workaround for IFrame-wrapping-Flash case, where we don't get a -1 event
-					pluginMediaElement.readyState = pluginMediaElement.HAVE_ENOUGH_DATA;
+
+				// because -1 and 5 are not reliable, we cannot reliably broadcast the
+				// 'loadedmetadata' event until the player has started playing the 
+				// video.
+				if (pluginMediaElement.readyState < pluginMediaElement.HAVE_METADATA) {
+					pluginMediaElement.readyState = pluginMediaElement.HAVE_METADATA;
 					mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'loadedmetadata');
-				}				
+				}
+
+				// shortcut: just say we have future data. If we want this to be more
+				// accurate we could use getVideoLoadedFraction() in conjunction with 
+				// getCurrentTime() / getDuration().
+				pluginMediaElement.readyState = pluginMediaElement.HAVE_FUTURE_DATA;
+				
 				mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'play');
 				mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'playing');
 				break;
-			case 2:
+			case 2: // pause
+				console.log('STATE CHANGE: 2 paused');
 				pluginMediaElement.paused = true;
-				pluginMediaElement.ended = false;				
+				pluginMediaElement.ended = false;
 				mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'pause');
 				break;
 			case 3: // buffering
+				console.log('STATE CHANGE: 3 buffering');
+				if (!pluginMediaElement.paused) {
+					pluginMediaElement.readyState = pluginMediaElement.HAVE_CURRENT_DATA;
+					mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'waiting');
+				}
+				
 				mejs.YouTubeApi.createEvent(player, pluginMediaElement, 'progress');
 				break;
-			case 5:
-				// cued?
+			case 5: // cued
+				console.log('STATE CHANGE: 5 cued');
+				// 5 is not sent reliably by the IFrame API. 
+
 				break;						
 			
 		}			

@@ -1,4 +1,4 @@
-package  
+﻿package  
 {
 	import flash.display.*;
 	import flash.events.*;
@@ -99,8 +99,8 @@ package
 			checkFlashVars(loaderInfo.parameters);
 			
 			// allows this player to be called from a different domain than the HTML page hosting the player
- 			//Security.allowDomain("*");
-			//Security.allowInsecureDomain('*');			
+ 			Security.allowDomain("*");
+			Security.allowInsecureDomain('*');			
 			
 			
 			// add debug output
@@ -176,12 +176,13 @@ package
 			//_mediaUrl = "http://video.ted.com/talks/podcast/AlGore_2006_480.mp4";
 			//_mediaUrl = "rtmp://stream2.france24.yacast.net/france24_live/en/f24_liveen";
 			
+			_mediaUrl = "https://www.youtube.com/watch?v=jofNR_WkoCE&feature=player_embedded";
 			//_mediaUrl = "http://www.youtube.com/watch?feature=player_embedded&v=yyWWXSwtPP0"; // hosea
 			//_mediaUrl = "http://www.youtube.com/watch?feature=player_embedded&v=m5VDDJlsD6I"; // railer with notes
 			
 			//_alwaysShowControls = true;
 
-			//_debug=true;
+			_debug=true;
 		
 
 			

@@ -1107,7 +1107,7 @@ if (typeof jQuery != 'undefined') {
 		},
 		remove: function() {
 			var t = this, featureIndex, feature;
-
+			
 			// invoke features cleanup
 			for (featureIndex in t.options.features) {
 				feature = t.options.features[featureIndex];
@@ -1139,10 +1139,11 @@ if (typeof jQuery != 'undefined') {
 				t.media.remove();
 			}
 
+			$('#' + t.id).remove(); // remove container
+
 			// Remove the player from the mejs.players object so that pauseOtherPlayers doesn't blow up when trying to pause a non existance flash api.
 			delete mejs.players[t.id];
 
-			t.container.remove();
 			t.globalUnbind();
 			delete t.node.player;
 		}
@@ -1328,7 +1329,7 @@ if (typeof jQuery != 'undefined') {
 					// mouse position relative to the object
 					var x = e.pageX,
 						offset = total.offset(),
-						width = total.outerWidth(true),
+						width = total.outerWidth(false),
 						percentage = 0,
 						newTime = 0,
 						pos = 0;
