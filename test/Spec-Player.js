@@ -7,7 +7,7 @@ describe("HTMLMediaElement", function() {
   var METADATA_TIMEOUT = 500, ENOUGH_DATA_TIMEOUT = 1000;
 
   beforeEach(function() {
-    $('body').prepend('<video width="640" height="360" id="player1" poster="../media/echo-hereweare.jpg">' +
+    $('body').append('<video width="640" height="360" id="player1" poster="../media/echo-hereweare.jpg">' +
       '<source type="video/mp4" src="../media/echo-hereweare.mp4" ></source>' +
       '<source type="video/webm" src="../media/echo-hereweare.webm" ></source>' +
         '</video>');
@@ -25,10 +25,10 @@ describe("HTMLMediaElement", function() {
   
   afterEach(function() {
     player.remove();
-    player = null;
-    element = null;
+
+    domElem = $('#player1')[0];
     domElem.parentNode.removeChild(domElem);
-    domElem = null;
+    player = element = domeElem = null;
   });
 
   it("should be of pluginType native", function() {
