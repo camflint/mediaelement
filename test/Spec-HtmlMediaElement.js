@@ -28,6 +28,7 @@ describe("HTMLMediaElement", function() {
 
     domElem = $('#player1')[0];
     domElem.parentNode.removeChild(domElem);
+    
     player = element = domeElem = null;
   });
 
